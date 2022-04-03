@@ -1,3 +1,19 @@
+# Send a dynamic reply to an incoming text message
+"""
+ngrok instructions:
+1) connect to Windows terminal
+2) set current directory to parent directory of ngrok.exe file [cd Downloads]
+3) Type the command "ngrok http 5000"
+4) copy and paste the shown url into the twilio website under "A message comes in" (make sure Webhook and HTTP POST is selected)
+5) add "/sms" to the end of the url
+6) press "Save"
+7) run the program
+**Note: every time ngrok is ran with the command "ngrok http 5000", a new url is generated,
+so these steps must be repeated if you need to launch ngrok again**
+"""
+from flask import Flask, request, redirect
+from twilio.twiml.messaging_response import MessagingResponse
+
 import os
 from twilio.rest import Client
 import datetime
@@ -12,7 +28,7 @@ mg_sid = "MGbc475ef0b56418fd500454d524e52384"
 # key = os.environ['TWILIO_API_KEY']
 # secret = os.environ['TWILIO_API_SECRET']
 
-notif_list = ['+18482473420', '+19084337325', '+18562063267']
+notif_list = []
 events = {}
 sends = {}
 
@@ -89,3 +105,65 @@ for send in sends:
     if today == send.date():
       eventforNotif = sends[send]
       schedule_notifs(eventforNotif, events[eventforNotif], send)
+
+
+
+
+ 
+app = Flask(__name__)
+ 
+# List of user numbers who have texted the service
+numbers = []
+commands = ("To join the notification system, type \"JOIN\"\n"
+            "To opt out of the notification system, type \"LEAVE\"\n"
+            "For a list of events, type \"LIST\"\n"
+            "To view this list of commands again, type \"SUPPORT\"")
+replySupport = " Reply with \"SUPPORT\" for help."
+ 
+@app.route("/sms", methods=['GET', 'POST'])
+def incoming_sms():
+    # Get the message the user sent our Twilio number
+    body = request.values.get('Body', None)
+    body = body.lower()
+ 
+    print(body)
+ 
+    # Get the user's telephone number
+    userNumber = request.values.get('From', None)
+    # Start our TwiML response
+    resp = MessagingResponse()
+ 
+    # Determine the right reply for this message
+ 
+    # If the user has never texted the service
+    if not userNumber in numbers:
+        numbers.append(userNumber)
+        resp.message("Welcome to the Rutgers Academic Calender Notification System: RU On Time?\n" + commands)
+ 
+    # If the user has previously texted the service
+    else:
+        if body == "join":
+            if userNumber in notif_list:
+                resp.message("You are already opted into the notification system." + replySupport)
+            else:
+                notif_list.append(userNumber)
+                resp.message("You have been opted into the notification system. Type \"LEAVE\" to opt out at any time." + replySupport)
+ 
+        elif body == "leave":
+            if not userNumber in notif_list:
+                resp.message("You are not currently opted into the notification system." + replySupport)
+            else:
+                notif_list.remove(userNumber)
+                resp.message("You have been opted out of the notification system. Type \"JOIN\" to opt in again." + replySupport)
+ 
+        # elif body == "list":      will print a list of the events
+ 
+        elif body == "support":
+            resp.message(commands)
+ 
+    return str(resp)
+ 
+app.run(debug=True)
+ 
+
+
