@@ -10,6 +10,11 @@ ngrok instructions:
 7) run the program
 **Note: every time ngrok is ran with the command "ngrok http 5000", a new url is generated,
 so these steps must be repeated if you need to launch ngrok again**
+
+GitHub instructions to make changes to repository:
+1) git add "filename"
+2) git commit -m "message saying what's changed"
+3) git push
 """
 from flask import Flask, request, redirect
 from twilio.twiml.messaging_response import MessagingResponse
@@ -28,7 +33,7 @@ mg_sid = "MGbc475ef0b56418fd500454d524e52384"
 # key = os.environ['TWILIO_API_KEY']
 # secret = os.environ['TWILIO_API_SECRET']
 
-notif_list = []
+notif_list = ['+18482473420']
 events = {}
 sends = {}
 
@@ -40,6 +45,16 @@ month_dict = {
     'october' : 10, 'november' : 11, 'december' : 12
 }
 
+def writeToTxt():
+    with open("notif.txt","w") as f:
+        for numbers in notif_list:
+            f.write(numbers + ', ')
+
+def readFromTxt():
+    with open("notif.txt",'r') as f:
+        notif_list = [numbers.rstrip(', ') for numbers in f]
+
+readFromTxt()
 
 def schedule_notifs(event, dateStart, dateSend):
     send_date = dateSend
@@ -116,7 +131,7 @@ app = Flask(__name__)
 numbers = []
 commands = ("To join the notification system, type \"JOIN\"\n"
             "To opt out of the notification system, type \"LEAVE\"\n"
-            "For a list of events, type \"LIST\"\n"
+            "To show a list of events, type \"LIST\"\n"
             "To view this list of commands again, type \"SUPPORT\"")
 replySupport = " Reply with \"SUPPORT\" for help."
  
@@ -148,14 +163,16 @@ def incoming_sms():
             else:
                 notif_list.append(userNumber)
                 resp.message("You have been opted into the notification system. Type \"LEAVE\" to opt out at any time." + replySupport)
- 
+                writeToTxt()
+
         elif body == "leave":
             if not userNumber in notif_list:
                 resp.message("You are not currently opted into the notification system." + replySupport)
             else:
                 notif_list.remove(userNumber)
                 resp.message("You have been opted out of the notification system. Type \"JOIN\" to opt in again." + replySupport)
- 
+                writeToTxt()
+
         # elif body == "list":      will print a list of the events
  
         elif body == "support":
