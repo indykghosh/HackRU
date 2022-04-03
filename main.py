@@ -19,19 +19,18 @@ GitHub instructions to make changes to repository:
 from flask import Flask, request, redirect
 from twilio.twiml.messaging_response import MessagingResponse
 
-import os
 from twilio.rest import Client
 import datetime
 import pandas as pd
+import time
 
+#Twilio account API Key, API secret, SID, and a messaging service sid
 key = "SKd9a607a5573a97dc32002e2b43648675"
 secret = "gjyVH0EUvl3I8XXVJ4W3s4zfgwVoZly5"
 twilio_sid = "AC6e7f493586c79a5c3cf3a8e85305af4d"
 mg_sid = "MGbc475ef0b56418fd500454d524e52384"
 
-# twilio_sid = os.environ['TWILIO_SID']
-# key = os.environ['TWILIO_API_KEY']
-# secret = os.environ['TWILIO_API_SECRET']
+
 
 # List of user numbers who have texted the service
 numbers_list = []
@@ -42,23 +41,27 @@ sends = {}
 
 client = Client(key, secret, twilio_sid)
 
-def writeToTxt():
+#writes new numbers to notification list
+def writeToNotif():
     with open("notif.txt","w") as f:
         for numbers in notif_list:
             f.write(numbers + '\n')
 
-def readFromTxt():
+#reads notification list file
+def readFromNotif():
     global notif_list
     with open("notif.txt","r") as f:
         notif_list = [numbers[:-1] for numbers in f]
 
-readFromTxt()
+readFromNotif()
 
+#writes new numbers to all list
 def writeToAll():
     with open("all.txt","w") as f:
         for numbers in numbers_list:
             f.write(numbers + '\n')
 
+#reads all list file
 def readFromAll():
     global numbers_list
     with open("all.txt","r") as f:
@@ -66,6 +69,7 @@ def readFromAll():
 
 readFromAll()
 
+#schedules notifications 7 days in advance of any event listed
 def schedule_notifs(event, dateStart, dateSend):
     send_date = dateSend
     for number in notif_list:
@@ -79,12 +83,14 @@ def schedule_notifs(event, dateStart, dateSend):
                 to=number
             )
 
+#use for ease of reading from csv
 month_dict = {
     'january': 1, 'february' : 2, 'march' : 3, 'april' : 4,
     'may' : 5, 'june' : 6, 'july' : 7, 'august' : 8, 'september' : 9,
     'october' : 10, 'november' : 11, 'december' : 12
 }
 
+#read csv and create a dictionary of event names to corresponding dates
 def interpret_csv(file):
     df = pd.read_csv(file)
     for i in range(len(df)):
@@ -101,7 +107,7 @@ def interpret_csv(file):
           events.update({event_name.title() : event_date})
           date_numbers.clear()
 
-
+#create dict of when messages should be sent to the event they notify for
 def sends_to_event():
   for event in events:
     dateStart = events[event]
@@ -124,16 +130,16 @@ def sends_to_event():
     sends.update({send_date : event})
 
 interpret_csv('calendar.csv')
-
 sends_to_event()
 
+#checks the current date for upcoming events
 today = datetime.date.today()
 for send in sends:
     if today == send.date():
-      eventforNotif = sends[send]
-      schedule_notifs(eventforNotif, events[eventforNotif], send)
+        eventforNotif = sends[send]
+        schedule_notifs(eventforNotif, events[eventforNotif], send)
 
-
+#uses the current date to get the next six upcoming events to reply to the user
 def list_events():
     event_message = ""
     event_df = pd.DataFrame(columns = ['Event', 'Date'])
@@ -153,7 +159,6 @@ def list_events():
     return event_message
 
 
-
 # Below: sms functionality 
 app = Flask(__name__)
 
@@ -162,7 +167,8 @@ commands = ("To join the notification system, type \"JOIN\"\n"
             "To show a list of upcoming events, type \"LIST\"\n"
             "To view this list of commands again, type \"SUPPORT\"")
 replySupport = " Reply with \"SUPPORT\" for help."
- 
+
+#function that hosts the SMS API
 @app.route("/sms", methods=['GET', 'POST'])
 def incoming_sms():
     global numbers_list
@@ -176,7 +182,7 @@ def incoming_sms():
     # Start our TwiML response
     resp = MessagingResponse()
  
-    # Determine the right reply for this message
+    # Determining the right reply for this message
  
     # If the user has never texted the service
     if not userNumber in numbers_list:
@@ -192,7 +198,7 @@ def incoming_sms():
             else:
                 notif_list.append(userNumber)
                 resp.message("You have been opted into the notification system. Type \"LEAVE\" to opt out at any time." + replySupport)
-                writeToTxt()
+                writeToNotif()
 
         elif body == "leave":
             if not userNumber in notif_list:
@@ -200,7 +206,7 @@ def incoming_sms():
             else:
                 notif_list.remove(userNumber)
                 resp.message("You have been opted out of the notification system. Type \"JOIN\" to opt in again." + replySupport)
-                writeToTxt()
+                writeToNotif()
 
         elif body == "list":
             resp.message(list_events())
@@ -209,8 +215,7 @@ def incoming_sms():
             resp.message(commands)
  
     return str(resp)
- 
+
+#runs the app
 app.run(debug=True)
  
-
-
