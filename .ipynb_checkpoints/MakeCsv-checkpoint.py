@@ -30,15 +30,14 @@ for j in table1.find_all('tr')[1:]:
   for data in row:
     data = data.lower()
     data = data.strip()
-    if '-' in data and counter != 0:
-      data = data[0:data.index('-')-1]
-    if '–' in data and counter != 0:
-      data = data[0:data.index('–')-1]
-    if '(' in data and counter != 0:
-      data = data[0:data.index('(')-1]
+    if '-' in data:
+      data = data[0:data.index('-')+1]
+    if '–' in data:
+      data = data[0:data.index('–')+1]
+    if '(' in data:
+      data = data[0:data.index('(')+1]
     data = repr(data).replace(r'\n',' ')
     data = data.replace(r'\t\t\t','')
-    data = data.replace(r'\t\t','')
     if counter != 0 :
       check = True
       yearOne = headers[counter][0:4]
