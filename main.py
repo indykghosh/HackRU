@@ -33,7 +33,7 @@ mg_sid = "MGbc475ef0b56418fd500454d524e52384"
 # key = os.environ['TWILIO_API_KEY']
 # secret = os.environ['TWILIO_API_SECRET']
 
-notif_list = ['+18482473420']
+notif_list = []
 events = {}
 sends = {}
 
@@ -51,7 +51,7 @@ def writeToTxt():
             f.write(numbers + ', ')
 
 def readFromTxt():
-    with open("notif.txt",'r') as f:
+    with open("notif.txt","r") as f:
         notif_list = [numbers.rstrip(', ') for numbers in f]
 
 readFromTxt()
