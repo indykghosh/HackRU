@@ -98,7 +98,7 @@ def interpret_csv(file):
           date_numbers[4] = date_numbers[4].replace(' ', '')
           event_name += str(" " + date_numbers[4])
           event_date = datetime.datetime(int(date_numbers[4]), month_dict[date_numbers[2]], int(date_numbers[3]))
-          events.update({event_name : event_date})
+          events.update({event_name.title() : event_date})
           date_numbers.clear()
 
 
