@@ -33,28 +33,38 @@ mg_sid = "MGbc475ef0b56418fd500454d524e52384"
 # key = os.environ['TWILIO_API_KEY']
 # secret = os.environ['TWILIO_API_SECRET']
 
+# List of user numbers who have texted the service
+numbers_list = []
+# List of user numbers who have joined the notif system
 notif_list = []
 events = {}
 sends = {}
 
 client = Client(key, secret, twilio_sid)
 
-month_dict = {
-    'january': 1, 'february' : 2, 'march' : 3, 'april' : 4,
-    'may' : 5, 'june' : 6, 'july' : 7, 'august' : 8, 'september' : 9,
-    'october' : 10, 'november' : 11, 'december' : 12
-}
-
 def writeToTxt():
     with open("notif.txt","w") as f:
         for numbers in notif_list:
-            f.write(numbers + ', ')
+            f.write(numbers + '\n')
 
 def readFromTxt():
+    global notif_list
     with open("notif.txt","r") as f:
-        notif_list = [numbers.rstrip(', ') for numbers in f]
+        notif_list = [numbers[:-1] for numbers in f]
 
 readFromTxt()
+
+def writeToAll():
+    with open("all.txt","w") as f:
+        for numbers in numbers_list:
+            f.write(numbers + '\n')
+
+def readFromAll():
+    global numbers_list
+    with open("all.txt","r") as f:
+        numbers_list = [numbers[:-1] for numbers in f]
+
+readFromAll()
 
 def schedule_notifs(event, dateStart, dateSend):
     send_date = dateSend
@@ -69,7 +79,11 @@ def schedule_notifs(event, dateStart, dateSend):
                 to=number
             )
 
-
+month_dict = {
+    'january': 1, 'february' : 2, 'march' : 3, 'april' : 4,
+    'may' : 5, 'june' : 6, 'july' : 7, 'august' : 8, 'september' : 9,
+    'october' : 10, 'november' : 11, 'december' : 12
+}
 
 def interpret_csv(file):
     df = pd.read_csv(file)
@@ -109,11 +123,9 @@ def sends_to_event():
     send_date = datetime.datetime(int(dateStart.strftime("%Y")), send_month, send_day, 14, 00)
     sends.update({send_date : event})
 
-
 interpret_csv('calendar.csv')
 
 sends_to_event()
-
 
 today = datetime.date.today()
 for send in sends:
@@ -122,27 +134,43 @@ for send in sends:
       schedule_notifs(eventforNotif, events[eventforNotif], send)
 
 
+def list_events():
+    event_message = ""
+    event_df = pd.DataFrame(columns = ['Event', 'Date'])
+    for event in events:
+        data = {'Event' : [event], 'Date' : [events[event]]}
+        df1 = pd.DataFrame(data)
+        event_df = pd.concat([event_df, df1], ignore_index=True)
+    event_df['Date'] = pd.to_datetime(event_df['Date'])
+    event_df = event_df.sort_values(by='Date')
+    event_df = event_df.reset_index(drop=True)
+    today = datetime.date.today()
+    i = 0
+    while event_df.loc[i, 'Date'] < today:
+        i += 1
+    for n in range(i, i + 6):
+        event_message += event_df.loc[n, 'Event'].replace("'", "") + event_df.loc[n, 'Date'].strftime(" %B %d") + "\n"
+    return event_message
 
 
- 
+
+# Below: sms functionality 
 app = Flask(__name__)
- 
-# List of user numbers who have texted the service
-numbers = []
+
 commands = ("To join the notification system, type \"JOIN\"\n"
             "To opt out of the notification system, type \"LEAVE\"\n"
-            "To show a list of events, type \"LIST\"\n"
+            "To show a list of upcoming events, type \"LIST\"\n"
             "To view this list of commands again, type \"SUPPORT\"")
 replySupport = " Reply with \"SUPPORT\" for help."
  
 @app.route("/sms", methods=['GET', 'POST'])
 def incoming_sms():
+    global numbers_list
+    global notif_list
     # Get the message the user sent our Twilio number
     body = request.values.get('Body', None)
     body = body.lower()
- 
-    print(body)
- 
+  
     # Get the user's telephone number
     userNumber = request.values.get('From', None)
     # Start our TwiML response
@@ -151,9 +179,10 @@ def incoming_sms():
     # Determine the right reply for this message
  
     # If the user has never texted the service
-    if not userNumber in numbers:
-        numbers.append(userNumber)
-        resp.message("Welcome to the Rutgers Academic Calender Notification System: RU On Time?\n" + commands)
+    if not userNumber in numbers_list:
+        numbers_list.append(userNumber)
+        resp.message("Welcome to the Rutgers Academic Calender Notification System: RU Prepared?\n" + commands)
+        writeToAll()
  
     # If the user has previously texted the service
     else:
@@ -173,7 +202,8 @@ def incoming_sms():
                 resp.message("You have been opted out of the notification system. Type \"JOIN\" to opt in again." + replySupport)
                 writeToTxt()
 
-        # elif body == "list":      will print a list of the events
+        elif body == "list":
+            resp.message(list_events())
  
         elif body == "support":
             resp.message(commands)
